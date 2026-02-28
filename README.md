@@ -1,4 +1,13 @@
-# 股票推荐系统
+# AI-Deep-Stock 🔍📈
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-1.12+-ee4c2c.svg)](https://pytorch.org/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+**AI-Deep-Stock** 是一款基于深度学习算法的智能股票分析引擎，通过多层神经网络挖掘海量市场数据，为投资者提供精准的股票价值评估与趋势预测。
+
+> ⚠️ **免责声明**：本项目仅供学习、研究和教育目的，不构成任何投资建议。股市有风险，投资需谨慎。
 
 基于技术指标的A股股票推荐系统，每日定时发送推荐报告。
 
