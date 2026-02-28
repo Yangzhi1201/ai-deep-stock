@@ -4,6 +4,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from app.stock.task import stock_recommendation_task
 from app.utils.logging import log
+from app.config import get_settings
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -24,10 +25,13 @@ app.add_middleware(
 # 创建定时任务调度器
 scheduler = BackgroundScheduler()
 
-# 每天9:30执行股票推荐任务（A股开盘时间）
+# 从配置读取定时任务时间（默认9:30）
+settings = get_settings()
+
+# 每天执行股票推荐任务（A股开盘时间）
 scheduler.add_job(
     stock_recommendation_task,
-    trigger=CronTrigger(hour=9, minute=30),
+    trigger=CronTrigger(hour=settings.scheduler_hour, minute=settings.scheduler_minute),
     id="stock_recommendation",
     name="每日股票推荐",
     replace_existing=True
