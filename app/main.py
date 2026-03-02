@@ -5,12 +5,13 @@ from apscheduler.triggers.cron import CronTrigger
 from app.stock.task import stock_recommendation_task
 from app.utils.logging import log
 from app.config import get_settings
+from app.api import stock_compare_router, daily_recommendation_router, system_router
 
 # 创建FastAPI应用
 app = FastAPI(
     title="股票推荐系统",
-    description="基于技术指标的A股股票推荐系统，每日定时发送推荐报告",
-    version="1.0.0"
+    description="基于技术指标的A股股票推荐系统，支持每日股票推荐和股票对比功能",
+    version="1.2.0"
 )
 
 # 配置CORS
@@ -21,6 +22,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 注册API路由
+app.include_router(stock_compare_router)
+app.include_router(daily_recommendation_router)
+app.include_router(system_router)
 
 # 创建定时任务调度器
 scheduler = BackgroundScheduler()
@@ -50,18 +56,6 @@ def shutdown_event():
     log.info("关闭定时任务调度器...")
     scheduler.shutdown()
     log.info("定时任务调度器已关闭")
-
-# 健康检查接口
-@app.get("/health")
-def health_check():
-    return {"status": "healthy", "message": "股票推荐系统运行正常"}
-
-# 手动触发股票推荐任务接口
-@app.post("/trigger")
-def trigger_recommendation():
-    log.info("手动触发股票推荐任务...")
-    stock_recommendation_task()
-    return {"status": "success", "message": "股票推荐任务已触发"}
 
 if __name__ == "__main__":
     import uvicorn

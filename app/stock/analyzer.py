@@ -1,14 +1,38 @@
+"""
+股票分析核心模块
+提供统一的分析功能，支持热门股票分析和指定股票分析
+"""
 import datetime
 import time
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
 import pandas as pd
-from app.stock.data import get_hot_stocks, get_kline_data
+from app.stock.data import get_hot_stocks, get_kline_data, _fill_stock_names
 from app.stock.indicators import compute_ma, compute_macd, compute_rsi
 from app.utils.config import HOT_STOCK_COUNT, RECOMMEND_COUNT
 from app.utils.logging import log
 
+
+def get_recommendation(score: int, signals: List[str]) -> Tuple[str, str]:
+    """
+    根据评分和信号生成买入建议和风险等级
+    返回: (recommendation, risk_level)
+    """
+    if score >= 80:
+        return ("强烈推荐", "中等")
+    elif score >= 60:
+        return ("推荐买入", "中等")
+    elif score >= 40:
+        return ("谨慎关注", "较高")
+    elif score >= 20:
+        return ("观望", "高")
+    else:
+        return ("不建议", "很高")
+
+
 def analyze_stock(code: str, market: int, name: str) -> Optional[Dict]:
     """
+    分析单只股票的技术指标
+    
     评分体系（满分 100）：
       - MA 均线系统：最高 40 分
       - MACD 指标：  最高 45 分
@@ -79,6 +103,9 @@ def analyze_stock(code: str, market: int, name: str) -> Optional[Dict]:
 
     latest_price = close.iloc[-1]
     change_pct = df["涨跌幅"].iloc[-1]
+    
+    # 生成买入建议和风险等级
+    recommendation, risk_level = get_recommendation(score, signals)
 
     return {
         "代码": code,
@@ -90,20 +117,132 @@ def analyze_stock(code: str, market: int, name: str) -> Optional[Dict]:
         "RSI": f"{rsi_val:.1f}",
         "MACD_DIF": f"{dif.iloc[-1]:.3f}",
         "MACD_DEA": f"{dea.iloc[-1]:.3f}",
+        "recommendation": recommendation,
+        "risk_level": risk_level
     }
 
-def run_analysis() -> List[Dict]:
-    hot_stocks = get_hot_stocks(top_n=HOT_STOCK_COUNT)
-    results = []
 
-    for s in hot_stocks:
-        log.info(f"  分析: {s['name']} ({s['code']}) ...")
-        result = analyze_stock(s["code"], s["market"], s["name"])
+def analyze_stocks_batch(
+    stocks: List[Dict],
+    sort_by: str = "综合评分",
+    sort_order: str = "desc",
+    delay: float = 0.3
+) -> Tuple[List[Dict], Dict]:
+    """
+    批量分析多只股票
+    
+    Args:
+        stocks: 股票列表，每个元素包含 code, market, name
+        sort_by: 排序字段
+        sort_order: 排序方向 (asc/desc)
+        delay: 请求间隔时间（秒）
+    
+    Returns:
+        (results, summary): 分析结果列表和汇总统计
+    """
+    log.info(f"开始批量分析 {len(stocks)} 只股票...")
+    
+    results = []
+    failed_stocks = []
+    
+    # 填充股票名称
+    filled_stocks = _fill_stock_names(stocks)
+    
+    for stock in filled_stocks:
+        log.info(f"  分析: {stock['name']} ({stock['code']}) ...")
+        result = analyze_stock(stock["code"], stock["market"], stock["name"])
+        
         if result:
             results.append(result)
-        time.sleep(0.3)  # 请求间隔，防止限频
+        else:
+            failed_stocks.append(f"{stock['name']}({stock['code']})")
+        
+        time.sleep(delay)  # 请求间隔，防止限频
+    
+    # 排序
+    reverse = sort_order.lower() == "desc"
+    
+    if sort_by == "涨跌幅":
+        # 涨跌幅需要特殊处理，去除百分号并转为浮点数
+        results.sort(key=lambda x: float(x["涨跌幅"].replace("%", "")), reverse=reverse)
+    else:
+        results.sort(key=lambda x: x.get(sort_by, x["综合评分"]), reverse=reverse)
+    
+    # 生成汇总统计
+    summary = {
+        "total": len(stocks),
+        "success": len(results),
+        "failed": len(failed_stocks),
+        "failed_stocks": failed_stocks,
+        "strong_buy": len([r for r in results if r["recommendation"] == "强烈推荐"]),
+        "buy": len([r for r in results if r["recommendation"] == "推荐买入"]),
+        "watch": len([r for r in results if r["recommendation"] == "谨慎关注"]),
+        "wait": len([r for r in results if r["recommendation"] == "观望"]),
+        "avoid": len([r for r in results if r["recommendation"] == "不建议"]),
+        "average_score": round(sum(r["综合评分"] for r in results) / len(results), 2) if results else 0,
+        "highest_score_stock": max(results, key=lambda x: x["综合评分"])["名称"] if results else None,
+        "lowest_score_stock": min(results, key=lambda x: x["综合评分"])["名称"] if results else None,
+    }
+    
+    message = f"成功分析 {len(results)}/{len(stocks)} 只股票"
+    if failed_stocks:
+        message += f"，失败: {', '.join(failed_stocks)}"
+    
+    log.info(f"分析完成: {message}")
+    
+    return results, summary
 
-    results.sort(key=lambda x: x["综合评分"], reverse=True)
-    top = results[:RECOMMEND_COUNT]
-    log.info(f"推荐 TOP {RECOMMEND_COUNT}: {[r['名称'] for r in top]}")
-    return top
+
+def run_hot_stocks_analysis(top_n: int = HOT_STOCK_COUNT, recommend_n: int = RECOMMEND_COUNT) -> List[Dict]:
+    """
+    运行热门股票分析（每日推荐任务使用）
+    
+    Args:
+        top_n: 获取热门股票数量
+        recommend_n: 推荐股票数量
+    
+    Returns:
+        推荐股票列表
+    """
+    hot_stocks = get_hot_stocks(top_n=top_n)
+    
+    results, summary = analyze_stocks_batch(
+        stocks=hot_stocks,
+        sort_by="综合评分",
+        sort_order="desc",
+        delay=0.3
+    )
+    
+    # 返回前N个推荐
+    top_results = results[:recommend_n]
+    log.info(f"推荐 TOP {recommend_n}: {[r['名称'] for r in top_results]}")
+    
+    return top_results
+
+
+def parse_stock_code(stock_str: str) -> Dict:
+    """
+    解析股票代码字符串
+    
+    支持格式：
+    - 600410.SH 或 600410.sh（沪市）
+    - 002261.SZ 或 002261.sz（深市）
+    - 600410（自动判断市场）
+    """
+    stock_str = stock_str.strip().upper()
+    
+    if ".SH" in stock_str:
+        code = stock_str.replace(".SH", "")
+        return {"code": code, "market": 1, "name": ""}
+    elif ".SZ" in stock_str:
+        code = stock_str.replace(".SZ", "")
+        return {"code": code, "market": 0, "name": ""}
+    else:
+        # 根据代码前缀判断市场
+        # 沪市：600, 601, 603, 688, 689
+        # 深市：000, 001, 002, 003, 300, 301
+        code = stock_str
+        if code.startswith(("6", "68", "69")):
+            return {"code": code, "market": 1, "name": ""}
+        else:
+            return {"code": code, "market": 0, "name": ""}

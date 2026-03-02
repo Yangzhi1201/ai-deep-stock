@@ -11,7 +11,7 @@
 
 - **技术面分析**：MA均线金叉、MACD金叉、RSI超卖反弹、量价配合
 - **定时任务**：每日自动执行分析并发送邮件
-- **API接口**：健康检查、手动触发任务
+- **API接口**：每日股票推荐、股票对比、健康检查
 - **邮件通知**：HTML邮件报告
 
 ## 快速开始
@@ -43,27 +43,70 @@ HOT_STOCK_COUNT=10
 RECOMMEND_COUNT=3
 ```
 
-### 3. 运行
+### 3. 运行服务
 
-**方式一：一键运行（推荐）**
-
-```bash
-# macOS/Linux
-./run.sh
-
-# Windows
-run.bat
-```
-
-**方式二：启动服务**
+启动FastAPI服务：
 
 ```bash
+# 开发模式（自动重载）
 uvicorn app.main:app --reload
+
+# 生产模式
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 服务启动后访问：
+- API文档：`http://127.0.0.1:8000/docs`
 - 健康检查：`GET http://127.0.0.1:8000/health`
-- 手动触发：`POST http://127.0.0.1:8000/trigger`
+
+## API接口说明
+
+### 1. 每日股票推荐
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/daily-recommendation/` | 手动触发每日股票推荐分析 |
+| `GET` | `/api/daily-recommendation/` | 获取每日推荐服务状态 |
+
+**示例请求**：
+```bash
+# 手动触发每日推荐
+curl -X POST "http://localhost:8000/api/daily-recommendation/"
+
+# 获取服务状态
+curl "http://localhost:8000/api/daily-recommendation/"
+```
+
+### 2. 股票对比
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/stock-compare/` | POST方式对比多只股票 |
+| `GET` | `/api/stock-compare/?codes=xxx,yyy` | GET方式对比多只股票 |
+
+**示例请求**：
+```bash
+# GET方式对比股票
+curl "http://localhost:8000/api/stock-compare/?codes=600410,002261,300750"
+
+# POST方式对比股票
+curl -X POST "http://localhost:8000/api/stock-compare/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stocks": [
+      {"code": "600410", "market": 1},
+      {"code": "002261", "market": 0},
+      {"code": "300750", "market": 0}
+    ]
+  }'
+```
+
+### 3. 系统管理
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/health` | 健康检查接口 |
+| `POST` | `/trigger` | 手动触发推荐任务（兼容旧接口） |
 
 ## 项目结构
 
@@ -75,12 +118,16 @@ uvicorn app.main:app --reload
 │   │   ├── analyzer.py # 分析引擎
 │   │   ├── email.py    # 邮件发送
 │   │   └── task.py     # 定时任务
+│   ├── api/            # API接口
+│   │   ├── daily_recommendation.py # 每日股票推荐
+│   │   ├── stock_compare.py         # 股票对比
+│   │   └── system.py                # 系统管理
 │   ├── utils/          # 工具类
+│   ├── config.py       # 配置管理
 │   └── main.py         # FastAPI入口
 ├── .env                # 环境变量
 ├── requirements.txt    # 依赖
-├── run.sh              # macOS/Linux运行脚本
-└── run.bat             # Windows运行脚本
+└── README.md           # 文档
 ```
 
 ## 评分逻辑
