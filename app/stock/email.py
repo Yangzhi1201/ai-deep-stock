@@ -86,7 +86,7 @@ def send_email(html_content: str):
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"📊 A股买入推荐 TOP3 | {today_str} {weekday}"
     msg["From"] = EMAIL_CONFIG["sender"]
-    msg["To"] = EMAIL_CONFIG["receiver"]
+    msg["To"] = ", ".join(EMAIL_CONFIG["receiver"])
     msg.attach(MIMEText(html_content, "html", "utf-8"))
 
     log.info(f"正在发送邮件至 {EMAIL_CONFIG['receiver']} ...")

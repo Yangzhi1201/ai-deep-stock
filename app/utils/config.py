@@ -10,7 +10,7 @@ EMAIL_CONFIG = {
     "smtp_port": int(os.getenv("SMTP_PORT", 465)),
     "sender": os.getenv("SENDER", "505557473@qq.com"),
     "password": os.getenv("PASSWORD", "你的QQ邮箱授权码"),
-    "receiver": os.getenv("RECEIVER", "505557473@qq.com"),
+    "receiver": [email.strip() for email in os.getenv("RECEIVER", "505557473@qq.com").split(",")],
 }
 
 # 股票分析配置

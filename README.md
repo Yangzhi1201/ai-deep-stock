@@ -32,7 +32,7 @@ SMTP_SERVER=smtp.qq.com
 SMTP_PORT=465
 SENDER=your_email@qq.com
 PASSWORD=your_authorization_code  # QQ邮箱授权码
-RECEIVER=receiver@example.com
+RECEIVER=receiver1@example.com, receiver2@example.com  # 多个邮箱用逗号分隔
 
 # 定时任务配置
 SCHEDULER_HOUR=9
