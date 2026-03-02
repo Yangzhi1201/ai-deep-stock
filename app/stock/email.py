@@ -25,7 +25,7 @@ def build_email_html(recommendations: List[Dict]) -> str:
             f'<span class="signal-tag">{s}</span>'
             for s in r["买入信号"]
         )
-        color = "#c62828" if r["涨跌幅"].startswith("+") else "#2e7d32"
+        change_class = "positive" if r["涨跌幅"].startswith("+") else "negative"
 
         rows_html += f"""
         <div class="stock-card">
@@ -37,10 +37,11 @@ def build_email_html(recommendations: List[Dict]) -> str:
                 </div>
                 <div class="stock-price">
                     <div class="stock-price-value">{r['最新价']}</div>
-                    <div class="stock-change" style="color:{color};">{r['涨跌幅']}</div>
+                    <div class="stock-change {change_class}">{r['涨跌幅']}</div>
                 </div>
                 <div class="stock-score">
                     <div class="stock-score-value">{r['综合评分']}</div>
+                    <div class="stock-score-label">评分</div>
                 </div>
             </div>
             <div class="stock-details">
@@ -63,40 +64,301 @@ def build_email_html(recommendations: List[Dict]) -> str:
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-            body {{ margin:0; padding:0; font-family:'Microsoft YaHei','Helvetica Neue',sans-serif; }}
-            .container {{ max-width:800px; margin:0 auto; padding:20px; }}
-            .header {{ background:linear-gradient(135deg,#1a237e,#283593); color:white; padding:24px 30px; border-radius:12px 12px 0 0; }}
-            .header h1 {{ margin:0; font-size:22px; }}
-            .header p {{ margin:8px 0 0; opacity:0.85; font-size:14px; }}
-            .stock-card {{ background:white; box-shadow:0 2px 8px rgba(0,0,0,0.08); margin-bottom:12px; border-radius:8px; overflow:hidden; }}
-            .stock-header {{ display:flex; align-items:center; padding:12px 16px; border-bottom:1px solid #f0f0f0; }}
-            .stock-rank {{ font-size:20px; font-weight:bold; margin-right:16px; width:30px; text-align:center; }}
-            .stock-info {{ flex:1; }}
-            .stock-name {{ font-weight:bold; font-size:16px; }}
-            .stock-code {{ color:#888; font-size:13px; }}
-            .stock-price {{ text-align:center; margin:0 16px; }}
-            .stock-price-value {{ font-size:18px; font-weight:bold; }}
-            .stock-change {{ font-size:13px; }}
-            .stock-score {{ text-align:center; margin:0 16px; }}
-            .stock-score-value {{ font-size:22px; font-weight:bold; color:#1565c0; }}
-            .stock-details {{ padding:12px 16px; }}
-            .stock-indicators {{ font-size:12px; margin-bottom:12px; }}
-            .stock-signals {{ }}
-            .signal-tag {{ display:inline-block; background:#e8f5e9; color:#2e7d32; padding:2px 8px; border-radius:10px; margin:2px 4px 2px 0; font-size:12px; }}
-            .warning {{ background:#fff8e1; border-left:4px solid #ffa000; padding:14px 18px; margin-top:16px; border-radius:0 8px 8px 0; }}
-            .warning p {{ margin:0; font-size:13px; color:#e65100; }}
-            .footer {{ text-align:center; color:#bbb; font-size:12px; margin-top:20px; }}
-            @media screen and (max-width: 600px) {{
-                .container {{ padding:10px; }}
-                .header h1 {{ font-size:18px; }}
-                .stock-header {{ flex-wrap:wrap; }}
-                .stock-rank {{ font-size:18px; margin-right:12px; }}
-                .stock-name {{ font-size:14px; }}
-                .stock-price, .stock-score {{ margin:8px 0; width:100%; text-align:left; }}
-                .stock-price-value, .stock-score-value {{ font-size:16px; }}
-                .stock-indicators {{ font-size:11px; }}
-                .signal-tag {{ font-size:11px; padding:2px 6px; }}
+            /* 全局样式 */
+            :root {{
+                --primary: #165DFF;
+                --primary-dark: #0E42B9;
+                --success: #00B42A;
+                --warning: #FF7D00;
+                --danger: #F53F3F;
+                --text: #1D2129;
+                --text-secondary: #86909C;
+                --background: #F5F7FA;
+                --card-bg: #FFFFFF;
+                --border: #E5E6EB;
+                --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+                --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.12);
+                --border-radius: 12px;
+                --transition: all 0.3s ease;
             }}
+            
+            body {{
+                margin: 0;
+                padding: 0;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+                background-color: var(--background);
+                color: var(--text);
+                line-height: 1.6;
+            }}
+            
+            .container {{
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+            }}
+            
+            /* 头部样式 */
+            .header {{
+                background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+                color: white;
+                padding: 32px 36px;
+                border-radius: var(--border-radius) var(--border-radius) 0 0;
+                position: relative;
+                overflow: hidden;
+            }}
+            
+            .header::before {{
+                content: '';
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 200px;
+                height: 200px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 50%;
+                transform: translate(50%, -50%);
+            }}
+            
+            .header h1 {{
+                margin: 0;
+                font-size: 28px;
+                font-weight: 600;
+                position: relative;
+                z-index: 1;
+            }}
+            
+            .header p {{
+                margin: 12px 0 0;
+                opacity: 0.9;
+                font-size: 14px;
+                position: relative;
+                z-index: 1;
+            }}
+            
+            /* 股票卡片样式 */
+            .stock-card {{
+                background: var(--card-bg);
+                border-radius: var(--border-radius);
+                box-shadow: var(--shadow);
+                margin-bottom: 16px;
+                overflow: hidden;
+                transition: var(--transition);
+                border: 1px solid var(--border);
+            }}
+            
+            .stock-card:hover {{
+                box-shadow: var(--shadow-hover);
+                transform: translateY(-2px);
+            }}
+            
+            .stock-header {{
+                display: flex;
+                align-items: center;
+                padding: 16px 20px;
+                border-bottom: 1px solid var(--border);
+                background: #F9FAFB;
+            }}
+            
+            .stock-rank {{
+                font-size: 24px;
+                font-weight: bold;
+                margin-right: 20px;
+                width: 40px;
+                text-align: center;
+                color: var(--primary);
+            }}
+            
+            .stock-info {{
+                flex: 1;
+            }}
+            
+            .stock-name {{
+                font-weight: 600;
+                font-size: 18px;
+                color: var(--text);
+                margin-bottom: 4px;
+            }}
+            
+            .stock-code {{
+                color: var(--text-secondary);
+                font-size: 14px;
+            }}
+            
+            .stock-price {{
+                text-align: center;
+                margin: 0 20px;
+                min-width: 100px;
+            }}
+            
+            .stock-price-value {{
+                font-size: 20px;
+                font-weight: 600;
+                color: var(--text);
+                margin-bottom: 4px;
+            }}
+            
+            .stock-change {{
+                font-size: 14px;
+                font-weight: 500;
+            }}
+            
+            .stock-change.positive {{
+                color: var(--success);
+            }}
+            
+            .stock-change.negative {{
+                color: var(--danger);
+            }}
+            
+            .stock-score {{
+                text-align: center;
+                margin: 0 20px;
+                min-width: 80px;
+            }}
+            
+            .stock-score-value {{
+                font-size: 24px;
+                font-weight: bold;
+                color: var(--primary);
+                margin-bottom: 4px;
+            }}
+            
+            .stock-score-label {{
+                font-size: 12px;
+                color: var(--text-secondary);
+            }}
+            
+            .stock-details {{
+                padding: 16px 20px;
+            }}
+            
+            .stock-indicators {{
+                font-size: 13px;
+                color: var(--text-secondary);
+                margin-bottom: 16px;
+                line-height: 1.5;
+            }}
+            
+            .stock-signals {{
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }}
+            
+            .signal-tag {{
+                display: inline-block;
+                background: #E8F3FF;
+                color: var(--primary);
+                padding: 4px 12px;
+                border-radius: 16px;
+                font-size: 12px;
+                font-weight: 500;
+                transition: var(--transition);
+            }}
+            
+            .signal-tag:hover {{
+                background: var(--primary);
+                color: white;
+            }}
+            
+            /* 警告样式 */
+            .warning {{
+                background: #FFF8E6;
+                border-left: 4px solid var(--warning);
+                padding: 16px 20px;
+                margin-top: 24px;
+                border-radius: 0 var(--border-radius) var(--border-radius) 0;
+                box-shadow: var(--shadow);
+            }}
+            
+            .warning p {{
+                margin: 0;
+                font-size: 14px;
+                color: #B35E00;
+                line-height: 1.5;
+            }}
+            
+            /* 页脚样式 */
+            .footer {{
+                text-align: center;
+                color: var(--text-secondary);
+                font-size: 12px;
+                margin-top: 24px;
+                padding: 16px 0;
+                border-top: 1px solid var(--border);
+            }}
+            
+            /* 响应式设计 */
+            @media screen and (max-width: 600px) {{
+                .container {{
+                    padding: 12px;
+                }}
+                
+                .header {{
+                    padding: 24px 20px;
+                }}
+                
+                .header h1 {{
+                    font-size: 22px;
+                }}
+                
+                .stock-header {{
+                    flex-wrap: wrap;
+                    gap: 12px;
+                    padding: 12px 16px;
+                }}
+                
+                .stock-rank {{
+                    font-size: 20px;
+                    margin-right: 12px;
+                }}
+                
+                .stock-name {{
+                    font-size: 16px;
+                }}
+                
+                .stock-price, .stock-score {{
+                    margin: 8px 0;
+                    min-width: auto;
+                }}
+                
+                .stock-price-value, .stock-score-value {{
+                    font-size: 18px;
+                }}
+                
+                .stock-details {{
+                    padding: 12px 16px;
+                }}
+                
+                .stock-indicators {{
+                    font-size: 12px;
+                }}
+                
+                .signal-tag {{
+                    font-size: 11px;
+                    padding: 3px 10px;
+                }}
+            }}
+            
+            /* 动画效果 */
+            @keyframes fadeIn {{
+                from {{
+                    opacity: 0;
+                    transform: translateY(10px);
+                }}
+                to {{
+                    opacity: 1;
+                    transform: translateY(0);
+                }}
+            }}
+            
+            .stock-card {{
+                animation: fadeIn 0.5s ease forwards;
+            }}
+            
+            .stock-card:nth-child(1) {{ animation-delay: 0.1s; }}
+            .stock-card:nth-child(2) {{ animation-delay: 0.2s; }}
+            .stock-card:nth-child(3) {{ animation-delay: 0.3s; }}
         </style>
     </head>
     <body>
