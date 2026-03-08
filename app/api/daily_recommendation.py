@@ -5,9 +5,7 @@
 from typing import Optional
 from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel, Field
-from app.stock.task import stock_recommendation_task
-from app.stock.analyzer import run_hot_stocks_analysis
-from app.stock.email import build_email_html, send_email
+from app.stock.task import analyze_and_send_daily_recommendation
 from app.utils.config import HOT_STOCK_COUNT, RECOMMEND_COUNT
 from app.utils.logging import log
 
@@ -34,7 +32,7 @@ async def trigger_daily_recommendation(background_tasks: BackgroundTasks):
     log.info("API请求: 手动触发每日股票推荐")
     
     # 后台执行推荐任务
-    background_tasks.add_task(_run_daily_recommendation_task)
+    background_tasks.add_task(analyze_and_send_daily_recommendation)
     
     return DailyRecommendationResponse(
         success=True,
@@ -53,25 +51,3 @@ async def get_daily_recommendation_status():
         success=True,
         message=f"每日股票推荐服务运行中，默认分析前 {HOT_STOCK_COUNT} 只热门股票，推荐前 {RECOMMEND_COUNT} 只"
     )
-
-
-def _run_daily_recommendation_task():
-    """
-    后台任务：执行每日股票推荐
-    """
-    try:
-        log.info("开始执行每日股票推荐任务...")
-        
-        # 运行热门股票分析
-        recommendations = run_hot_stocks_analysis()
-        
-        if recommendations:
-            # 发送邮件
-            html = build_email_html(recommendations)
-            send_email(html)
-            log.info(f"每日推荐完成并发送邮件，共 {len(recommendations)} 只股票")
-        else:
-            log.warning("没有获取到推荐股票，跳过邮件发送")
-            
-    except Exception as e:
-        log.error(f"每日推荐任务失败: {e}", exc_info=True)

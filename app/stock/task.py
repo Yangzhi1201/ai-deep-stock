@@ -4,8 +4,13 @@
 """
 import datetime
 from typing import List, Dict
-from app.stock.analyzer import run_hot_stocks_analysis
-from app.stock.email import build_email_html, send_email
+from app.stock.analyzer import run_hot_stocks_analysis, analyze_stocks_batch
+from app.stock.email import (
+    send_daily_recommendation_email,
+    send_compare_email,
+    build_daily_recommendation_html,
+    build_compare_html
+)
 from app.utils.logging import log
 
 
@@ -29,9 +34,8 @@ def stock_recommendation_task():
         recommendations = run_hot_stocks_analysis()
         
         if recommendations:
-            # 发送邮件
-            html = build_email_html(recommendations)
-            send_email(html)
+            # 发送每日推荐邮件
+            send_daily_recommendation_email(recommendations)
             log.info("任务完成！")
         else:
             log.warning("没有获取到推荐股票，跳过邮件发送。")
@@ -40,9 +44,47 @@ def stock_recommendation_task():
         log.error(f"任务执行异常: {e}", exc_info=True)
 
 
-def analyze_and_send_email(stocks: List[Dict]) -> Dict:
+def analyze_and_send_daily_recommendation() -> Dict:
     """
-    分析指定股票并发送邮件
+    分析每日推荐股票并发送邮件
+    
+    Returns:
+        包含分析结果和发送状态的字典
+    """
+    log.info("开始执行每日股票推荐分析...")
+    
+    try:
+        # 运行热门股票分析
+        recommendations = run_hot_stocks_analysis()
+        
+        if recommendations:
+            # 发送每日推荐邮件
+            send_daily_recommendation_email(recommendations)
+            
+            return {
+                "success": True,
+                "message": f"成功分析并发送 {len(recommendations)} 只股票推荐",
+                "count": len(recommendations)
+            }
+        else:
+            return {
+                "success": False,
+                "message": "没有获取到推荐股票",
+                "count": 0
+            }
+            
+    except Exception as e:
+        log.error(f"每日推荐任务失败: {e}", exc_info=True)
+        return {
+            "success": False,
+            "message": f"执行失败: {str(e)}",
+            "count": 0
+        }
+
+
+def analyze_and_send_compare(stocks: List[Dict]) -> Dict:
+    """
+    分析指定股票并发送对比邮件
     
     Args:
         stocks: 股票列表，每个元素包含 code, market, name
@@ -50,22 +92,19 @@ def analyze_and_send_email(stocks: List[Dict]) -> Dict:
     Returns:
         包含分析结果和发送状态的字典
     """
-    from app.stock.analyzer import analyze_stocks_batch
-    
-    log.info(f"开始分析指定股票列表，共 {len(stocks)} 只...")
+    log.info(f"开始分析股票对比，共 {len(stocks)} 只...")
     
     try:
         # 批量分析
         results, summary = analyze_stocks_batch(stocks)
         
         if results:
-            # 发送邮件
-            html = build_email_html(results)
-            send_email(html)
+            # 发送对比邮件
+            send_compare_email(results, summary)
             
             return {
                 "success": True,
-                "message": f"成功分析 {summary['success']}/{summary['total']} 只股票，邮件已发送",
+                "message": f"成功对比 {summary['success']}/{summary['total']} 只股票，邮件已发送",
                 "summary": summary,
                 "results": results
             }
@@ -78,7 +117,7 @@ def analyze_and_send_email(stocks: List[Dict]) -> Dict:
             }
             
     except Exception as e:
-        log.error(f"分析并发送邮件失败: {e}", exc_info=True)
+        log.error(f"股票对比任务失败: {e}", exc_info=True)
         return {
             "success": False,
             "message": f"执行失败: {str(e)}",

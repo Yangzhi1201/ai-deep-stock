@@ -6,6 +6,7 @@ from typing import List, Dict, Optional
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from pydantic import BaseModel, Field
 from app.stock.analyzer import analyze_stocks_batch, parse_stock_code
+from app.stock.task import analyze_and_send_compare
 from app.utils.logging import log
 
 router = APIRouter(prefix="/api/stock-compare", tags=["股票对比"])
@@ -53,7 +54,7 @@ async def compare_stocks_post(request: StockCompareRequest, background_tasks: Ba
     stocks = [{"code": s.code, "market": s.market, "name": s.name or ""} for s in request.stocks]
     
     # 后台执行分析和发送邮件
-    background_tasks.add_task(_compare_and_send_task, stocks)
+    background_tasks.add_task(analyze_and_send_compare, stocks)
     
     return StockCompareResponse(
         success=True,
@@ -92,33 +93,9 @@ async def compare_stocks_get(
         stocks.append(parsed)
     
     # 后台执行分析和发送邮件
-    background_tasks.add_task(_compare_and_send_task, stocks)
+    background_tasks.add_task(analyze_and_send_compare, stocks)
     
     return StockCompareResponse(
         success=True,
         message=f"已接收对比请求，共 {len(stocks)} 只股票，对比报告将发送至邮箱"
     )
-
-
-def _compare_and_send_task(stocks: List[Dict]):
-    """
-    后台任务：对比股票并发送邮件
-    
-    Args:
-        stocks: 股票列表
-    """
-    try:
-        # 执行批量分析，按评分排序
-        results, summary = analyze_stocks_batch(stocks, sort_by="综合评分", sort_order="desc")
-        
-        if results:
-            # 发送邮件
-            from app.stock.email import build_email_html, send_email
-            html = build_email_html(results)
-            send_email(html)
-            log.info(f"股票对比完成并发送邮件，共 {len(results)} 只股票")
-        else:
-            log.warning("没有成功分析任何股票，跳过邮件发送")
-            
-    except Exception as e:
-        log.error(f"后台对比任务失败: {e}", exc_info=True)
