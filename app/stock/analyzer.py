@@ -206,32 +206,88 @@ def analyze_stocks_batch(
 def run_hot_stocks_analysis(top_n: int = HOT_STOCK_COUNT, recommend_n: int = RECOMMEND_COUNT) -> List[Dict]:
     """
     运行热门股票分析（每日推荐任务使用）
+    如果初次获取的股票中符合条件的不足 recommend_n，会尝试扩大范围继续获取。
     
     Args:
-        top_n: 获取热门股票数量
+        top_n: 初始获取热门股票数量
         recommend_n: 推荐股票数量
     
     Returns:
         推荐股票列表
     """
-    hot_stocks = get_hot_stocks(top_n=top_n)
     
-    results, summary = analyze_stocks_batch(
-        stocks=hot_stocks,
-        sort_by="综合评分",
-        sort_order="desc",
-        delay=0.3
-    )
+    all_recommendations = []
+    analyzed_codes = set()
+    current_page = 1
+    max_pages = 3 # 最多尝试获取 5 页数据
     
-    # 过滤：仅保留 "强烈推荐" 或 "推荐买入" 的股票
-    filtered_results = [
-        r for r in results 
-        if r["recommendation"] in ["强烈推荐", "推荐买入"]
-    ]
+    # 每次获取的数量，可以与 top_n 保持一致
+    batch_size = top_n 
+    
+    while len(all_recommendations) < recommend_n and current_page <= max_pages:
+        log.info(f"正在获取第 {current_page} 批热门股票进行分析 (目标推荐: {recommend_n}, 当前: {len(all_recommendations)})...")
+        
+        # 获取热门股票，注意 get_hot_stocks 需要支持分页参数
+        # 由于目前 get_hot_stocks 只有一个 top_n 参数，我们可能需要临时修改一下或者通过 top_n 控制
+        # 现有接口: get_hot_stocks(top_n) -> 实际上是获取前 N 个
+        # 我们可以通过不断增大 top_n 来获取更多，但这样会重复分析
+        # 为了高效，我们最好修改 get_hot_stocks 支持分页，或者在这里简单粗暴地扩大 top_n
+        
+        # 简单策略：每一轮扩大 top_n
+        # 第1轮: top_n
+        # 第2轮: top_n * 2
+        # ...
+        current_top_n = batch_size * current_page
+        
+        # 获取最新的前 N 个
+        hot_stocks = get_hot_stocks(top_n=current_top_n)
+        
+        # 筛选出未分析过的股票
+        # 注意：get_hot_stocks 返回的是前 current_top_n 个，
+        # 我们只需要分析其中还没分析过的部分
+        new_stocks = []
+        for stock in hot_stocks:
+            if stock["code"] not in analyzed_codes:
+                new_stocks.append(stock)
+                analyzed_codes.add(stock["code"])
+                
+        if not new_stocks:
+            log.info("未发现更多新股票，停止分析")
+            break
+            
+        log.info(f"本轮新增 {len(new_stocks)} 只股票待分析...")
+        
+        # 批量分析
+        # 修复：调用 analyze_stocks_batch 时，只传入 new_stocks
+        # 但 analyze_stocks_batch 返回的 results 只包含 new_stocks 的结果
+        # 所以我们需要把结果收集起来
+        results, _ = analyze_stocks_batch(
+            stocks=new_stocks,
+            sort_by="综合评分",
+            sort_order="desc",
+            delay=0.5  # 增加延时以避免限流
+        )
+        
+        # 过滤：仅保留 "强烈推荐" 或 "推荐买入"
+        qualified_results = [
+            r for r in results 
+            if r["recommendation"] in ["强烈推荐", "推荐买入"]
+        ]
+        
+        all_recommendations.extend(qualified_results)
+        
+        # 检查是否已满足推荐数量
+        if len(all_recommendations) >= recommend_n:
+            break
+            
+        current_page += 1
+    
+    # 对所有结果按评分排序
+    all_recommendations.sort(key=lambda x: x["综合评分"], reverse=True)
     
     # 返回前N个推荐
-    top_results = filtered_results[:recommend_n]
-    log.info(f"推荐 TOP {recommend_n} (已过滤非买入评级): {[r['名称'] for r in top_results]}")
+    top_results = all_recommendations[:recommend_n]
+    log.info(f"最终推荐 TOP {recommend_n}: {[r['名称'] for r in top_results]}")
     
     return top_results
 

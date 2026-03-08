@@ -13,6 +13,15 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 }
 
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+# 配置带有重试机制的 Session
+session = requests.Session()
+retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+session.mount('http://', HTTPAdapter(max_retries=retries))
+session.mount('https://', HTTPAdapter(max_retries=retries))
+
 settings = get_settings()
 
 def get_hot_stocks(top_n: int = 10) -> List[Dict]:
@@ -131,7 +140,8 @@ def get_kline_data(code: str, market: int, days: int = 300) -> Optional[pd.DataF
     }
     
     try:
-        resp = requests.get(url, params=params, headers=HEADERS, timeout=settings.eastmoney_timeout)
+        # 使用带有重试机制的 session
+        resp = session.get(url, params=params, headers=HEADERS, timeout=settings.eastmoney_timeout)
         data = resp.json()
         klines = data.get("data", {}).get("klines", [])
         
