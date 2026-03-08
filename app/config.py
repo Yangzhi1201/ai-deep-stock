@@ -37,6 +37,16 @@ class Settings(BaseSettings):
     hot_stock_count: int = 10
     recommend_count: int = 3
 
+    # --- 东方财富 API ---
+    eastmoney_hot_list_url: str = "https://emappdata.eastmoney.com/stockrank/getAllCurrentList"
+    eastmoney_suggest_url: str = "https://searchapi.eastmoney.com/api/suggest/get"
+    eastmoney_kline_url: str = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
+    eastmoney_clist_url: str = "https://push2.eastmoney.com/api/qt/clist/get"
+    eastmoney_timeout: int = 5
+    eastmoney_token: str = "D43BF722C8E33BDC906FB84D85E326E8"
+    eastmoney_ut: str = "bd1d9ddb04089700cf9c27f6f7426281"
+    eastmoney_global_id: str = "786e4c21-70dc-435a-93bb-38"
+
     model_config = {
         "env_file": str(BASE_DIR / ".env"),
         "env_file_encoding": "utf-8",

@@ -6,18 +6,21 @@ import pandas as pd
 import datetime
 from typing import List, Dict, Optional, Union
 from app.utils.logging import log
+from app.config import get_settings
 
 # 东方财富接口配置
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 }
 
+settings = get_settings()
+
 def get_hot_stocks(top_n: int = 10) -> List[Dict]:
     """
     获取热门股票（东方财富人气榜）
     """
     # 东方财富人气榜新接口 (需 POST)
-    url = "https://emappdata.eastmoney.com/stockrank/getAllCurrentList"
+    url = settings.eastmoney_hot_list_url
     
     # 必须的 Headers
     headers = HEADERS.copy()
@@ -30,14 +33,14 @@ def get_hot_stocks(top_n: int = 10) -> List[Dict]:
     
     payload = {
         "appId": "appId01",
-        "globalId": "786e4c21-70dc-435a-93bb-38", # 固定 ID 或需动态获取
+        "globalId": settings.eastmoney_global_id,
         "marketType": "",
         "pageNo": 1,
         "pageSize": top_n
     }
     
     try:
-        resp = requests.post(url, json=payload, headers=headers, timeout=5)
+        resp = requests.post(url, json=payload, headers=headers, timeout=settings.eastmoney_timeout)
         data = resp.json()
         items = data.get("data", [])
         
@@ -90,13 +93,13 @@ def _fill_stock_names(stocks: List[Dict]) -> List[Dict]:
         if not stock.get("name") or stock["name"] == stock["code"]: 
             try:
                 # https://searchapi.eastmoney.com/api/suggest/get?input=600519&type=14
-                suggest_url = "https://searchapi.eastmoney.com/api/suggest/get"
+                suggest_url = settings.eastmoney_suggest_url
                 params = {
                     "input": stock["code"],
                     "type": "14",
-                    "token": "D43BF722C8E33BDC906FB84D85E326E8"
+                    "token": settings.eastmoney_token
                 }
-                resp = requests.get(suggest_url, params=params, headers=HEADERS, timeout=2)
+                resp = requests.get(suggest_url, params=params, headers=HEADERS, timeout=settings.eastmoney_timeout)
                 data = resp.json()
                 items = data.get("QuotationCodeTable", {}).get("Data", [])
                 if items:
@@ -116,7 +119,7 @@ def get_kline_data(code: str, market: int, days: int = 300) -> Optional[pd.DataF
     # 我们的系统：1=沪, 0=深
     secid = f"{market}.{code}"
     
-    url = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
+    url = settings.eastmoney_kline_url
     params = {
         "secid": secid,
         "fields1": "f1,f2,f3,f4,f5,f6",
@@ -128,7 +131,7 @@ def get_kline_data(code: str, market: int, days: int = 300) -> Optional[pd.DataF
     }
     
     try:
-        resp = requests.get(url, params=params, headers=HEADERS, timeout=5)
+        resp = requests.get(url, params=params, headers=HEADERS, timeout=settings.eastmoney_timeout)
         data = resp.json()
         klines = data.get("data", {}).get("klines", [])
         
@@ -172,11 +175,11 @@ def get_sector_stocks(sector_name: str, top_n: int = 10) -> List[Dict]:
     
     # 1. 搜索板块代码
     # 东方财富板块搜索接口 (示例: 搜索 "电力")
-    search_url = "https://searchapi.eastmoney.com/api/suggest/get"
+    search_url = settings.eastmoney_suggest_url
     search_params = {
         "input": sector_name,
         "type": "14", # type=14 通常是板块
-        "token": "D43BF722C8E33BDC906FB84D85E326E8",
+        "token": settings.eastmoney_token,
         "count": "5"
     }
     
@@ -195,13 +198,13 @@ def get_sector_stocks(sector_name: str, top_n: int = 10) -> List[Dict]:
         log.info(f"找到板块: {sector_real_name} ({sector_code})")
         
         # 2. 获取板块成分股
-        list_url = "https://push2.eastmoney.com/api/qt/clist/get"
+        list_url = settings.eastmoney_clist_url
         list_params = {
             "pn": "1",
             "pz": str(top_n),
             "po": "1", # 1=desc, 0=asc
             "np": "1",
-            "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+            "ut": settings.eastmoney_ut,
             "fltt": "2",
             "invt": "2",
             "fid": "f3", # 按涨跌幅排序
