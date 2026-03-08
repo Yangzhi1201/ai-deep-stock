@@ -777,7 +777,48 @@ def _send_email(msg: MIMEMultipart):
         raise
 
 
+def send_custom_email(subject: str, content: str, to_list: List[str] = None):
+    """
+    发送自定义邮件
+    
+    Args:
+        subject: 邮件主题
+        content: 邮件HTML内容
+        to_list: 收件人列表，如果为None则使用默认配置
+    """
+    if to_list is None:
+        to_list = EMAIL_CONFIG["receiver"]
+        
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = Header(subject, "utf-8")
+    msg["From"] = EMAIL_CONFIG["sender"]
+    msg["To"] = ", ".join(to_list)
+    
+    # 纯文本版本
+    plain_text = "请在支持HTML的邮件客户端查看完整内容。"
+    plain_part = MIMEText(plain_text.encode('utf-8'), "plain", _charset="utf-8")
+    msg.attach(plain_part)
+    
+    # HTML版本
+    html_part = MIMEText(content.encode('utf-8'), "html", _charset="utf-8")
+    msg.attach(html_part)
+    
+    # 使用 _send_email 发送
+    # 注意：_send_email 内部写死了 receiver 变量作为参数传给 sendmail，我们需要稍微调整 _send_email
+    # 或者我们在这里直接重写发送逻辑
+    
+    log.info(f"正在发送自定义邮件至 {to_list} ...")
+    try:
+        with smtplib.SMTP_SSL(EMAIL_CONFIG["smtp_server"], EMAIL_CONFIG["smtp_port"]) as server:
+            server.login(EMAIL_CONFIG["sender"], EMAIL_CONFIG["password"])
+            server.sendmail(EMAIL_CONFIG["sender"], to_list, msg.as_string())
+        log.info("自定义邮件发送成功！")
+    except Exception as e:
+        log.error(f"自定义邮件发送失败: {e}")
+        raise
+
 # 兼容旧接口
+
 def build_email_html(recommendations: List[Dict]) -> str:
     """兼容旧接口，默认使用每日推荐模板"""
     return build_daily_recommendation_html(recommendations)

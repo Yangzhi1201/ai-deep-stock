@@ -3,18 +3,26 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 
-基于技术指标的A股股票推荐系统，每日定时发送推荐报告。
+基于 **LangGraph** 的智能 A 股股票推荐系统，实现了从数据获取、技术分析、报告生成到邮件发送的全流程自动化。
 
 > ⚠️ **免责声明**：本项目仅供学习研究，不构成投资建议。股市有风险，投资需谨慎。
 
-## 功能特性
+## ✨ 功能特性
 
-- **技术面分析**：MA均线金叉、MACD金叉、RSI超卖反弹、量价配合
-- **定时任务**：每日自动执行分析并发送邮件
-- **API接口**：每日股票推荐、股票对比、健康检查
-- **邮件通知**：HTML邮件报告
+- **🤖 智能 Agent 工作流**：基于 LangGraph 构建的自动化流水线，支持多模式数据采集与分析。
+- **📊 多维度推荐**：
+  - **🔥 热门股票**：自动抓取并分析市场热度最高的 TOP10 股票。
+  - **🏢 板块/概念**：支持按板块（如“人工智能”、“白酒”）筛选涨幅靠前的成分股进行分析。
+  - **🎯 指定股票**：深度分析用户关注的特定股票（支持 SH/SZ 市场代码）。
+- **📈 技术面分析**：
+  - **MA 均线系统**：金叉/死叉识别，多头排列判断。
+  - **MACD 指标**：趋势强弱分析，背离检测。
+  - **RSI 指标**：超买超卖状态识别。
+  - **量价关系**：成交量与价格走势配合分析。
+- **⏰ 自动化任务**：每日定时（默认 9:30）自动执行热门股及重点板块分析，并发送邮件报告。
+- **📧 邮件通知**：生成包含详细评分、推荐理由和数据概览的 HTML 邮件报告。
 
-## 快速开始
+## 🚀 快速开始
 
 ### 1. 安装依赖
 
@@ -24,31 +32,30 @@ pip install -r requirements.txt
 
 ### 2. 配置环境变量
 
-编辑 `.env` 文件：
+复制 `.env.example` 为 `.env` 并编辑配置：
 
 ```env
-# 邮箱配置（QQ邮箱）
+# OpenAI 配置 (可选，用于未来扩展智能分析)
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# 邮箱配置（推荐使用 QQ 邮箱 SMTP）
 SMTP_SERVER=smtp.qq.com
 SMTP_PORT=465
 SENDER=your_email@qq.com
 PASSWORD=your_authorization_code  # QQ邮箱授权码
-RECEIVER=receiver1@example.com, receiver2@example.com  # 多个邮箱用逗号分隔
+RECEIVER=receiver1@example.com,receiver2@example.com  # 多个接收者用逗号分隔
 
 # 定时任务配置
 SCHEDULER_HOUR=9
 SCHEDULER_MINUTE=30
-
-# 股票分析配置
-HOT_STOCK_COUNT=10
-RECOMMEND_COUNT=3
 ```
 
 ### 3. 运行服务
 
-启动FastAPI服务：
+启动 FastAPI 服务：
 
 ```bash
-# 开发模式（自动重载）
+# 开发模式（支持热重载）
 uvicorn app.main:app --reload
 
 # 生产模式
@@ -56,89 +63,113 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 服务启动后访问：
-- API文档：`http://127.0.0.1:8000/docs`
-- 健康检查：`GET http://127.0.0.1:8000/health`
+- **API 文档 (Swagger UI)**: `http://127.0.0.1:8000/docs`
+- **健康检查**: `http://127.0.0.1:8000/health`
 
-## API接口说明
+## 🔌 API 接口说明
 
-### 1. 每日股票推荐
+所有推荐接口均会触发 Agent 工作流，分析完成后自动发送邮件。
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `POST` | `/api/daily-recommendation/` | 手动触发每日股票推荐分析 |
-| `GET` | `/api/daily-recommendation/` | 获取每日推荐服务状态 |
+### 1. 热门股票推荐
 
-**示例请求**：
-```bash
-# 手动触发每日推荐
-curl -X POST "http://localhost:8000/api/daily-recommendation/"
+获取当前市场人气最高的股票进行分析。
 
-# 获取服务状态
-curl "http://localhost:8000/api/daily-recommendation/"
-```
-
-### 2. 股票对比
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `POST` | `/api/stock-compare/` | POST方式对比多只股票 |
-| `GET` | `/api/stock-compare/?codes=xxx,yyy` | GET方式对比多只股票 |
+- **URL**: `/api/recommend/hot`
+- **Method**: `POST`
 
 **示例请求**：
 ```bash
-# GET方式对比股票
-curl "http://localhost:8000/api/stock-compare/?codes=600410,002261,300750"
-
-# POST方式对比股票
-curl -X POST "http://localhost:8000/api/stock-compare/" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "stocks": [
-      {"code": "600410", "market": 1},
-      {"code": "002261", "market": 0},
-      {"code": "300750", "market": 0}
-    ]
-  }'
+curl -X POST "http://localhost:8000/api/recommend/hot"
 ```
 
-### 3. 系统管理
+### 2. 板块/概念推荐
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/health` | 健康检查接口 |
-| `POST` | `/trigger` | 手动触发推荐任务（兼容旧接口） |
+指定板块名称，获取该板块涨幅靠前的成分股进行分析。
 
-## 项目结构
+- **URL**: `/api/recommend/sector`
+- **Method**: `POST`
+- **Body**:
+  ```json
+  {
+    "sector_name": "白酒"
+  }
+  ```
+
+**示例请求**：
+```bash
+curl -X POST "http://localhost:8000/api/recommend/sector" \
+     -H "Content-Type: application/json" \
+     -d '{"sector_name": "电力设备"}'
+```
+
+### 3. 指定股票分析
+
+深度分析指定的股票代码。
+
+- **URL**: `/api/recommend/specific`
+- **Method**: `POST`
+- **Body**:
+  ```json
+  {
+    "stock_codes": ["600519", "000858", "600036.SH"]
+  }
+  ```
+
+**示例请求**：
+```bash
+curl -X POST "http://localhost:8000/api/recommend/specific" \
+     -H "Content-Type: application/json" \
+     -d '{"stock_codes": ["600519", "000858"]}'
+```
+
+## 🧪 测试
+
+项目包含完整的 API 集成测试。
+
+```bash
+# 安装测试依赖
+pip install pytest httpx
+
+# 运行测试
+PYTHONPATH=. pytest tests/test_api.py
+```
+
+## 📂 项目结构
 
 ```
 ├── app/
-│   ├── stock/          # 股票分析模块
-│   │   ├── data.py     # 数据获取
-│   │   ├── indicators.py # 技术指标
-│   │   ├── analyzer.py # 分析引擎
-│   │   ├── email.py    # 邮件发送
-│   │   └── task.py     # 定时任务
-│   ├── api/            # API接口
-│   │   ├── daily_recommendation.py # 每日股票推荐
-│   │   ├── stock_compare.py         # 股票对比
-│   │   └── system.py                # 系统管理
+│   ├── agent/          # Agent 智能体模块
+│   │   └── workflow.py     # LangGraph 工作流定义 (核心逻辑)
+│   ├── stock/          # 股票分析核心模块
+│   │   ├── data.py         # 数据获取 (东方财富接口)
+│   │   ├── indicators.py   # 技术指标计算
+│   │   ├── analyzer.py     # 分析引擎 & 评分系统
+│   │   ├── email.py        # 邮件生成与发送
+│   │   └── task.py         # 定时任务调度
+│   ├── api/            # API 接口层
+│   │   ├── recommendation.py # 推荐业务接口
+│   │   └── system.py         # 系统管理接口
 │   ├── utils/          # 工具类
 │   ├── config.py       # 配置管理
-│   └── main.py         # FastAPI入口
-├── .env                # 环境变量
-├── requirements.txt    # 依赖
-└── README.md           # 文档
+│   └── main.py         # FastAPI 应用入口
+├── tests/              # 测试用例
+│   └── test_api.py     # API 集成测试
+├── .env                # 环境变量配置
+├── requirements.txt    # 项目依赖
+└── README.md           # 项目文档
 ```
 
-## 评分逻辑
+## 📝 评分逻辑
 
-| 指标 | 权重 |
-|------|------|
-| MA均线系统 | 40分 |
-| MACD指标 | 45分 |
-| RSI指标 | 25分 |
-| 量价配合 | 15分 |
+系统根据以下维度对股票进行综合打分（满分 100 分）：
 
-## 许可证
+| 指标 | 权重 | 说明 |
+|------|------|------|
+| **MA 均线** | 40% | 均线多头排列、金叉信号 |
+| **MACD** | 30% | 趋势强弱、金叉/死叉 |
+| **RSI** | 20% | 超买超卖状态 |
+| **量价配合** | 10% | 成交量与价格趋势的验证 |
 
-MIT License
+## 📄 许可证
+
+[MIT License](LICENSE)

@@ -5,7 +5,7 @@ from apscheduler.triggers.cron import CronTrigger
 from app.stock.task import stock_recommendation_task
 from app.utils.logging import log
 from app.config import get_settings
-from app.api import stock_compare_router, daily_recommendation_router, system_router
+from app.api import system_router, recommendation_router
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -24,9 +24,8 @@ app.add_middleware(
 )
 
 # 注册API路由
-app.include_router(stock_compare_router)
-app.include_router(daily_recommendation_router)
 app.include_router(system_router)
+app.include_router(recommendation_router)
 
 # 创建定时任务调度器
 scheduler = BackgroundScheduler()
