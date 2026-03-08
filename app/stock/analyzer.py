@@ -107,6 +107,10 @@ def analyze_stock(code: str, market: int, name: str) -> Optional[Dict]:
     # 生成买入建议和风险等级
     recommendation, risk_level = get_recommendation(score, signals)
 
+    # 确保 name 不为空
+    if not name or name == code:
+        name = code # 至少显示代码
+
     return {
         "代码": code,
         "名称": name,
@@ -146,11 +150,17 @@ def analyze_stocks_batch(
     failed_stocks = []
     
     # 填充股票名称
+    # 注意：get_hot_stocks 已经调用过一次 _fill_stock_names，但如果是手动传入的列表可能未填充
+    # 这里再次调用确保万无一失
+    from app.stock.data import _fill_stock_names
     filled_stocks = _fill_stock_names(stocks)
     
     for stock in filled_stocks:
-        log.info(f"  分析: {stock['name']} ({stock['code']}) ...")
-        result = analyze_stock(stock["code"], stock["market"], stock["name"])
+        # 确保 name 存在，如果还是没有，就用 code 代替
+        stock_name = stock.get("name") or stock.get("code")
+        log.info(f"  分析: {stock_name} ({stock['code']}) ...")
+        
+        result = analyze_stock(stock["code"], stock["market"], stock_name)
         
         if result:
             results.append(result)

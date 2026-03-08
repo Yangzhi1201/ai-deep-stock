@@ -16,42 +16,97 @@ def get_hot_stocks(top_n: int = 10) -> List[Dict]:
     """
     获取热门股票（东方财富人气榜）
     """
-    url = "https://emappdata.eastmoney.com/stock/rank/getbrand/list"
-    params = {
-        "type": "1",
-        "pageSize": str(top_n),
-        "page": "1",
-        "deviceid": "12345678"
+    # 东方财富人气榜新接口 (需 POST)
+    url = "https://emappdata.eastmoney.com/stockrank/getAllCurrentList"
+    
+    # 必须的 Headers
+    headers = HEADERS.copy()
+    headers.update({
+        "Content-Type": "application/json",
+        "Host": "emappdata.eastmoney.com",
+        "Origin": "https://vipmoney.eastmoney.com",
+        "Referer": "https://vipmoney.eastmoney.com/collect/stockranking/pages/ranking/list.html"
+    })
+    
+    payload = {
+        "appId": "appId01",
+        "globalId": "786e4c21-70dc-435a-93bb-38", # 固定 ID 或需动态获取
+        "marketType": "",
+        "pageNo": 1,
+        "pageSize": top_n
     }
     
     try:
-        resp = requests.get(url, params=params, headers=HEADERS, timeout=5)
+        resp = requests.post(url, json=payload, headers=headers, timeout=5)
         data = resp.json()
-        rank_list = data.get("data", [])
+        items = data.get("data", [])
         
         stocks = []
-        for item in rank_list:
-            code = item["sc"]
-            market = 1 if item["mkt"] == 1 else 0 # 简单推断，实际可能需要更严谨判断
-            # 修正市场代码判断：东财 mkt 1=沪, 0=深
-            # 但有时候 sc 带有市场前缀
+        for item in items:
+            # item: {'sc': 'SH600519', 'rk': 1, ...}
+            raw_code = item.get("sc", "") # e.g., "SH600519"
             
-            # 这里为了保险，重新解析一下
-            if code.startswith("6"):
+            # 解析市场和代码
+            if raw_code.startswith("SH"):
                 market = 1
-            else:
+                code = raw_code[2:]
+            elif raw_code.startswith("SZ"):
                 market = 0
-                
+                code = raw_code[2:]
+            else:
+                # 尝试猜测
+                if raw_code.startswith("6"):
+                    market = 1
+                    code = raw_code
+                else:
+                    market = 0
+                    code = raw_code
+
+            # 获取股票名称 (接口只返回代码，需额外获取或在后续流程补充)
+            # 这里先给个默认值，或者尝试通过 K 线接口顺便获取名字
+            # 为保持流程简单，这里先置空，依赖后续 _fill_stock_names 或 get_kline_data 补充
+            name = code # 暂用代码代替
+            
             stocks.append({
                 "code": code,
                 "market": market,
-                "name": item["on"]
+                "name": name # 暂时缺失
             })
+            
+        # 补充股票名称
+        stocks = _fill_stock_names(stocks)
             
         return stocks
     except Exception as e:
         log.error(f"获取热门股票失败: {e}")
         return []
+
+def _fill_stock_names(stocks: List[Dict]) -> List[Dict]:
+    """
+    批量或单独填充股票名称
+    """
+    for stock in stocks:
+        # 如果 name 为空，或者 name 和 code 相同（有些地方用 code 占位）
+        if not stock.get("name") or stock["name"] == stock["code"]: 
+            try:
+                # https://searchapi.eastmoney.com/api/suggest/get?input=600519&type=14
+                suggest_url = "https://searchapi.eastmoney.com/api/suggest/get"
+                params = {
+                    "input": stock["code"],
+                    "type": "14",
+                    "token": "D43BF722C8E33BDC906FB84D85E326E8"
+                }
+                resp = requests.get(suggest_url, params=params, headers=HEADERS, timeout=2)
+                data = resp.json()
+                items = data.get("QuotationCodeTable", {}).get("Data", [])
+                if items:
+                    stock["name"] = items[0]["Name"]
+                    # log.debug(f"已获取股票名称: {stock['code']} -> {stock['name']}")
+            except Exception as e:
+                # log.warning(f"获取股票名称失败 {stock['code']}: {e}")
+                pass
+                
+    return stocks
 
 def get_kline_data(code: str, market: int, days: int = 300) -> Optional[pd.DataFrame]:
     """
@@ -100,14 +155,6 @@ def get_kline_data(code: str, market: int, days: int = 300) -> Optional[pd.DataF
         log.error(f"获取 {code} K线数据失败: {e}")
         return None
 
-def _fill_stock_names(stocks: List[Dict]) -> List[Dict]:
-    """
-    填充股票名称（如果缺失）
-    """
-    # 简单实现，如果 name 为空，尝试获取
-    # 这里暂时直接返回，因为大多数接口都带了 name
-    # 或者如果需要，可以调用 get_kline_data 顺便获取 name（接口里有）
-    return stocks
 
 def get_sector_stocks(sector_name: str, top_n: int = 10) -> List[Dict]:
     """
