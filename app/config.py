@@ -18,8 +18,6 @@ class Settings(BaseSettings):
 
     # --- 服务 ---
     app_name: str = "stock-recommender"
-    app_host: str = "0.0.0.0"
-    app_port: int = 8000
     log_level: str = "INFO"
 
     # --- 邮件 ---
@@ -28,10 +26,6 @@ class Settings(BaseSettings):
     email_sender: str = ""
     email_password: str = ""
     email_receiver: str = ""
-
-    # --- 定时任务 ---
-    scheduler_hour: int = 9
-    scheduler_minute: int = 0
 
     # --- 选股 ---
     hot_stock_count: int = 10
@@ -47,10 +41,16 @@ class Settings(BaseSettings):
     eastmoney_ut: str = "bd1d9ddb04089700cf9c27f6f7426281"
     eastmoney_global_id: str = "786e4c21-70dc-435a-93bb-38"
 
+    # --- LLM ---
+    openai_api_key: str = ""
+    openai_api_base: str = "https://api.openai.com/v1"
+    openai_model: str = "gpt-4o"
+
     model_config = {
         "env_file": str(BASE_DIR / ".env"),
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
+        "extra": "ignore"  # 忽略多余的环境变量
     }
 
 

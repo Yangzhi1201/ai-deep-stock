@@ -1,61 +1,83 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
-from app.stock.task import stock_recommendation_task
+import sys
+import os
+import readline # 启用历史记录和行编辑
+
+# 确保项目根目录在 path 中，以便能正确导入 app 模块
+# 获取当前脚本所在目录的上一级目录 (即项目根目录)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from app.agent.workflow import create_agent_graph
 from app.utils.logging import log
-from app.config import get_settings
-from app.api import system_router, recommendation_router
 
-# 创建FastAPI应用
-app = FastAPI(
-    title="股票推荐系统",
-    description="基于技术指标的A股股票推荐系统，支持每日股票推荐和股票对比功能",
-    version="1.2.0"
-)
-
-# 配置CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# 注册API路由
-app.include_router(system_router)
-app.include_router(recommendation_router)
-
-# 创建定时任务调度器
-scheduler = BackgroundScheduler()
-
-# 从配置读取定时任务时间（默认9:30）
-settings = get_settings()
-
-# 每天执行股票推荐任务（A股开盘时间）
-scheduler.add_job(
-    stock_recommendation_task,
-    trigger=CronTrigger(hour=settings.scheduler_hour, minute=settings.scheduler_minute),
-    id="stock_recommendation",
-    name="每日股票推荐",
-    replace_existing=True
-)
-
-# 启动定时任务调度器
-@app.on_event("startup")
-def startup_event():
-    log.info("启动定时任务调度器...")
-    scheduler.start()
-    log.info("定时任务调度器已启动")
-
-# 关闭定时任务调度器
-@app.on_event("shutdown")
-def shutdown_event():
-    log.info("关闭定时任务调度器...")
-    scheduler.shutdown()
-    log.info("定时任务调度器已关闭")
+def main():
+    print("="*50)
+    print("🤖 股票分析 AI 助手 (CLI)")
+    print("输入您的问题，例如：'推荐几只热门股票' 或 '分析贵州茅台'")
+    print("输入 'exit' 或 'quit' 退出")
+    print("="*50)
+    
+    # 初始化 Graph
+    app = create_agent_graph()
+    
+    # 维护对话历史
+    history = []
+    
+    while True:
+        try:
+            user_input = input("\n👤 您: ").strip()
+            if not user_input:
+                continue
+                
+            if user_input.lower() in ["exit", "quit"]:
+                print("👋 再见！")
+                break
+            
+            # 构造输入
+            if not history:
+                inputs = {"query": user_input, "messages": []}
+            else:
+                history.append({"role": "user", "content": user_input})
+                inputs = {"query": user_input, "messages": history}
+            
+            print("🤖 思考中...", end="", flush=True)
+            
+            # 运行 graph
+            result = app.invoke(inputs)
+            
+            # 更新 history (result["messages"] 是完整的历史记录)
+            history = result["messages"]
+            
+            # 清除 "思考中..."
+            print("\r" + " "*10 + "\r", end="")
+            
+            last_msg = history[-1]
+            
+            # 兼容处理：history 中的消息可能是 dict 也可能是 object (ChatCompletionMessage)
+            role = ""
+            content = ""
+            
+            if isinstance(last_msg, dict):
+                role = last_msg.get("role")
+                content = last_msg.get("content")
+            else:
+                # 假设是对象，尝试属性访问
+                role = getattr(last_msg, "role", "")
+                content = getattr(last_msg, "content", "")
+            
+            if role == "assistant":
+                 print(f"🤖 AI: {content}")
+            else:
+                 print(f"🤖 AI (Raw): {last_msg}")
+                 
+        except KeyboardInterrupt:
+            print("\n👋 再见！")
+            break
+        except Exception as e:
+            print(f"\n❌ 发生错误: {e}")
+            log.error(f"CLI Error: {e}", exc_info=True)
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    main()
