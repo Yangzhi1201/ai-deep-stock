@@ -1,11 +1,12 @@
-fastapi==0.104.1
+fastapi==0.135.1
 uvicorn==0.24.0.post1
 pandas==2.1.4
 numpy==1.26.3
 requests==2.31.0
 python-dotenv==1.0.0
 APScheduler==3.10.4
-langchain
-langchain-community
-langchain-openai
-langgraph
+langgraph==0.6.7
+langchain-core==0.3.76
+# 邮件解析和发送依赖
+lxml==6.0.2
+jinja2==3.1.6
