@@ -223,9 +223,15 @@ def run_hot_stocks_analysis(top_n: int = HOT_STOCK_COUNT, recommend_n: int = REC
         delay=0.3
     )
     
+    # 过滤：仅保留 "强烈推荐" 或 "推荐买入" 的股票
+    filtered_results = [
+        r for r in results 
+        if r["recommendation"] in ["强烈推荐", "推荐买入"]
+    ]
+    
     # 返回前N个推荐
-    top_results = results[:recommend_n]
-    log.info(f"推荐 TOP {recommend_n}: {[r['名称'] for r in top_results]}")
+    top_results = filtered_results[:recommend_n]
+    log.info(f"推荐 TOP {recommend_n} (已过滤非买入评级): {[r['名称'] for r in top_results]}")
     
     return top_results
 

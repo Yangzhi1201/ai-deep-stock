@@ -81,13 +81,21 @@ def analysis_node(state: AgentState) -> Dict:
     results.sort(key=lambda x: x.get("综合评分", 0), reverse=True)
     
     # 结果筛选策略
-    # 如果是指定股票，返回所有结果；否则只取前 5 名推荐
-    if state.get("query_type") != "SPECIFIC":
-        top_results = results[:5]
-    else:
-        top_results = results
+    query_type = state.get("query_type")
     
-    log.info(f"  分析完成，筛选出 {len(top_results)} 只优质股票")
+    if query_type == "SPECIFIC":
+        # 如果是指定股票，返回所有结果（不过滤，即使评级低也展示）
+        top_results = results
+    else:
+        # 热门/板块模式：只保留 "强烈推荐" 或 "推荐买入"
+        filtered_results = [
+            r for r in results 
+            if r.get("recommendation") in ["强烈推荐", "推荐买入"]
+        ]
+        # 取前 5 名
+        top_results = filtered_results[:5]
+    
+    log.info(f"  分析完成，筛选出 {len(top_results)} 只优质股票 (已过滤非买入评级)")
     return {"analysis_results": top_results}
 
 
@@ -100,12 +108,14 @@ def email_processing_node(state: AgentState) -> Dict:
     results = state["analysis_results"]
     
     if not results:
-        log.warning("  无分析结果，跳过邮件发送")
+        log.warning("  无分析结果或未达到推荐标准，跳过邮件发送")
         return {"email_sent": False}
     
+    # 生成 HTML 报告
     try:
-        # 生成 HTML 报告
         html_content = build_daily_recommendation_html(results)
+        # 发送邮件
+        subject = f"【AI选股】{state.get('query_type')} 模式分析报告"
         
         # 发送邮件
         send_email(html_content)

@@ -14,5 +14,5 @@ EMAIL_CONFIG = {
 }
 
 # 股票分析配置
-HOT_STOCK_COUNT = int(os.getenv("HOT_STOCK_COUNT", 10))
+HOT_STOCK_COUNT = int(os.getenv("HOT_STOCK_COUNT", 20))
 RECOMMEND_COUNT = int(os.getenv("RECOMMEND_COUNT", 3))
