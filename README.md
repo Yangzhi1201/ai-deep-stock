@@ -35,9 +35,6 @@ pip install -r requirements.txt
 复制 `.env.example` 为 `.env` 并编辑配置：
 
 ```env
-# OpenAI 配置 (可选，用于未来扩展智能分析)
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
 # 邮箱配置（推荐使用 QQ 邮箱 SMTP）
 SMTP_SERVER=smtp.qq.com
 SMTP_PORT=465
