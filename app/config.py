@@ -47,10 +47,28 @@ class Settings(BaseSettings):
     eastmoney_ut: str = "bd1d9ddb04089700cf9c27f6f7426281"
     eastmoney_global_id: str = "786e4c21-70dc-435a-93bb-38"
 
+    # --- MiniQMT 配置 ---
+    # MiniQMT 安装路径，例如: "C:/国金证券QMT交易端/userdata_mini"
+    minqmt_path: str = ""
+    # 会话ID，用于区分不同的连接
+    minqmt_session_id: int = 0
+    # 资金账号
+    minqmt_account_id: str = ""
+    # 是否启用 MiniQMT 作为数据源
+    minqmt_enabled: bool = False
+    # 数据源优先级: "minqmt" 或 "eastmoney"
+    data_source_priority: str = "minqmt"
+
+    # --- OpenAI 配置 ---
+    openai_api_key: str = ""
+    openai_api_base: str = ""
+    openai_model: str = ""
+
     model_config = {
         "env_file": str(BASE_DIR / ".env"),
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
+        "extra": "allow",  # 允许额外的环境变量
     }
 
 

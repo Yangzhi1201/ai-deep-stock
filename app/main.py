@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from app.stock.task import stock_recommendation_task
+from app.stock.miniqmt import init_minqmt, close_minqmt
 from app.utils.logging import log
 from app.config import get_settings
 from app.api import system_router, recommendation_router
@@ -48,6 +49,10 @@ def startup_event():
     log.info("启动定时任务调度器...")
     scheduler.start()
     log.info("定时任务调度器已启动")
+    
+    # 初始化 MiniQMT
+    log.info("初始化 MiniQMT...")
+    init_minqmt()
 
 # 关闭定时任务调度器
 @app.on_event("shutdown")
@@ -55,6 +60,10 @@ def shutdown_event():
     log.info("关闭定时任务调度器...")
     scheduler.shutdown()
     log.info("定时任务调度器已关闭")
+    
+    # 关闭 MiniQMT
+    log.info("关闭 MiniQMT...")
+    close_minqmt()
 
 if __name__ == "__main__":
     import uvicorn
