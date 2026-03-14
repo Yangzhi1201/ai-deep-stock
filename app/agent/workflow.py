@@ -3,9 +3,9 @@
 基于 LangGraph 实现的数据收集、分析、报告生成与发送的全流程自动化。
 现在支持基于 LLM 的智能决策。
 """
-from typing import TypedDict, List, Dict, Optional, Annotated, Any
+from typing import TypedDict, List, Dict, Optional, Annotated, Any, Union
 import operator
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, END, START
 from app.utils.logging import log
 from app.agent.llm import llm_client, TOOLS_DEFINITIONS
 
@@ -13,7 +13,7 @@ from app.agent.llm import llm_client, TOOLS_DEFINITIONS
 
 class AgentState(TypedDict):
     """Agent 工作流的状态字典"""
-    messages: Annotated[List[Dict], operator.add]  # 聊天记录
+    messages: Annotated[List[Union[Dict, Any]], operator.add]  # 聊天记录 (混合了 Dict 和 Object)
     query: str       # 用户查询
 
 # --- 节点定义 ---
@@ -94,8 +94,8 @@ def create_agent_graph():
     workflow.add_node("agent", llm_node)
     workflow.add_node("tools", tool_node)
     
-    # 设置入口
-    workflow.set_entry_point("agent")
+    # 设置入口 (LangGraph 1.0+ 推荐使用 START)
+    workflow.add_edge(START, "agent")
     
     # 添加边
     workflow.add_conditional_edges(
