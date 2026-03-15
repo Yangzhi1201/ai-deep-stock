@@ -18,8 +18,6 @@ class Settings(BaseSettings):
 
     # --- 服务 ---
     app_name: str = "stock-recommender"
-    app_host: str = "0.0.0.0"
-    app_port: int = 8000
     log_level: str = "INFO"
 
     # --- 邮件 ---
@@ -28,10 +26,6 @@ class Settings(BaseSettings):
     email_sender: str = ""
     email_password: str = ""
     email_receiver: str = ""
-
-    # --- 定时任务 ---
-    scheduler_hour: int = 9
-    scheduler_minute: int = 0
 
     # --- 选股 ---
     hot_stock_count: int = 10

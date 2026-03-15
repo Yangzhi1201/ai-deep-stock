@@ -5,8 +5,6 @@ from apscheduler.triggers.cron import CronTrigger
 from app.stock.task import stock_recommendation_task
 from app.stock.miniqmt import init_minqmt, close_minqmt
 from app.utils.logging import log
-from app.config import get_settings
-from app.api import system_router, recommendation_router
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -66,5 +64,4 @@ def shutdown_event():
     close_minqmt()
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    main()

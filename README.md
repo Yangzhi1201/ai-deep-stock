@@ -35,69 +35,35 @@ pip install -r requirements.txt
 复制 `.env.example` 为 `.env` 并编辑配置：
 
 ```env
-# 邮箱配置（推荐使用 QQ 邮箱 SMTP）
-SMTP_SERVER=smtp.qq.com
-SMTP_PORT=465
-SENDER=your_email@qq.com
-PASSWORD=your_authorization_code  # QQ邮箱授权码
-RECEIVER=receiver1@example.com,receiver2@example.com  # 多个接收者用逗号分隔
+# LLM 配置 (OpenAI 兼容)
+OPENAI_API_KEY=your_api_key
+OPENAI_API_BASE=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o
 
-# 定时任务配置
-SCHEDULER_HOUR=9
-SCHEDULER_MINUTE=30
+# 东方财富 API 配置 (通常使用默认值即可)
 ```
 
-### 3. 运行服务
+### 3. 运行助手
 
-启动 FastAPI 服务：
+启动交互式 CLI：
 
 ```bash
-# 开发模式（支持热重载）
-uvicorn app.main:app --reload
-
-# 生产模式
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+python app/main.py
 ```
 
-服务启动后访问：
-- **API 文档 (Swagger UI)**: `http://127.0.0.1:8000/docs`
-- **健康检查**: `http://127.0.0.1:8000/health`
+启动后，您可以直接与 AI 助手对话，例如：
+- "推荐几只热门股票"
+- "分析贵州茅台"
+- "看看白酒板块的情况"
 
-## 🔌 API 接口说明
+## ✨ 功能特性
 
-所有推荐接口均会触发 Agent 工作流，分析完成后自动发送邮件。
-
-### 1. 热门股票推荐
-
-获取当前市场人气最高的股票进行分析。
-
-- **URL**: `/api/recommend/hot`
-- **Method**: `POST`
-
-**示例请求**：
-```bash
-curl -X POST "http://localhost:8000/api/recommend/hot"
-```
-
-### 2. 板块/概念推荐
-
-指定板块名称，获取该板块涨幅靠前的成分股进行分析。
-
-- **URL**: `/api/recommend/sector`
-- **Method**: `POST`
-- **Body**:
-  ```json
-  {
-    "sector_name": "白酒"
-  }
-  ```
-
-**示例请求**：
-```bash
-curl -X POST "http://localhost:8000/api/recommend/sector" \
-     -H "Content-Type: application/json" \
-     -d '{"sector_name": "电力设备"}'
-```
+- **🤖 智能对话**：通过自然语言与 AI 助手交互，无需记忆复杂指令。
+- **📊 多维度分析**：
+  - **🔥 热门股票**：自动获取市场热门股票并进行技术面分析。
+  - **🏢 板块扫描**：按板块筛选并分析潜力股。
+  - **📈 个股诊断**：提供详细的技术指标分析（MACD, KDJ, RSI 等）。
+- **🧠 智能决策**：基于 LangGraph 的 Agent 工作流，自动调用工具获取数据并生成专业报告。
 
 ### 3. 指定股票分析
 
@@ -112,45 +78,22 @@ curl -X POST "http://localhost:8000/api/recommend/sector" \
   }
   ```
 
-**示例请求**：
-```bash
-curl -X POST "http://localhost:8000/api/recommend/specific" \
-     -H "Content-Type: application/json" \
-     -d '{"stock_codes": ["600519", "000858"]}'
-```
-
-## 🧪 测试
-
-项目包含完整的 API 集成测试。
-
-```bash
-# 安装测试依赖
-pip install pytest httpx
-
-# 运行测试
-PYTHONPATH=. pytest tests/test_api.py
-```
-
 ## 📂 项目结构
 
 ```
 ├── app/
 │   ├── agent/          # Agent 智能体模块
-│   │   └── workflow.py     # LangGraph 工作流定义 (核心逻辑)
+│   │   ├── workflow.py     # LangGraph 工作流定义 (核心逻辑)
+│   │   ├── llm.py          # LLM 交互逻辑
+│   │   └── tools.py        # Agent 工具定义
 │   ├── stock/          # 股票分析核心模块
 │   │   ├── data.py         # 数据获取 (东方财富接口)
 │   │   ├── indicators.py   # 技术指标计算
-│   │   ├── analyzer.py     # 分析引擎 & 评分系统
-│   │   ├── email.py        # 邮件生成与发送
-│   │   └── task.py         # 定时任务调度
-│   ├── api/            # API 接口层
-│   │   ├── recommendation.py # 推荐业务接口
-│   │   └── system.py         # 系统管理接口
+│   │   └── analyzer.py     # 分析引擎 & 评分系统
 │   ├── utils/          # 工具类
 │   ├── config.py       # 配置管理
-│   └── main.py         # FastAPI 应用入口
-├── tests/              # 测试用例
-│   └── test_api.py     # API 集成测试
+│   └── main.py         # CLI 应用入口
+├── run.py              # 项目启动脚本
 ├── .env                # 环境变量配置
 ├── requirements.txt    # 项目依赖
 └── README.md           # 项目文档
