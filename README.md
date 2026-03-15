@@ -27,6 +27,8 @@
 ### 1. 安装依赖
 
 ```bash
+python -m venv .venv
+source .venv/Scripts/activate
 pip install -r requirements.txt
 ```
 
@@ -45,11 +47,13 @@ OPENAI_MODEL=gpt-4o
 
 ### 3. 运行助手
 
-启动交互式 CLI：
+在项目根目录启动服务：
 
 ```bash
-python app/main.py
+python -m app.main
 ```
+
+服务启动后，访问 http://localhost:8080/health 检查健康状态。
 
 启动后，您可以直接与 AI 助手对话，例如：
 - "推荐几只热门股票"

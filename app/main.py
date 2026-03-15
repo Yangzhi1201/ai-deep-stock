@@ -1,15 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
-from app.stock.task import stock_recommendation_task
 from app.stock.miniqmt import init_minqmt, close_minqmt
 from app.utils.logging import log
+from app.config import get_settings
 
 # 创建FastAPI应用
 app = FastAPI(
     title="股票推荐系统",
-    description="基于技术指标的A股股票推荐系统，支持每日股票推荐和股票对比功能",
+    description="基于技术指标的A股股票推荐系统",
     version="1.2.0"
 )
 
@@ -22,46 +20,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 注册API路由
-app.include_router(system_router)
-app.include_router(recommendation_router)
-
-# 创建定时任务调度器
-scheduler = BackgroundScheduler()
-
-# 从配置读取定时任务时间（默认9:30）
+# 获取配置
 settings = get_settings()
 
-# 每天执行股票推荐任务（A股开盘时间）
-scheduler.add_job(
-    stock_recommendation_task,
-    trigger=CronTrigger(hour=settings.scheduler_hour, minute=settings.scheduler_minute),
-    id="stock_recommendation",
-    name="每日股票推荐",
-    replace_existing=True
-)
+@app.get("/health")
+def health_check():
+    """健康检查接口"""
+    return {"status": "healthy"}
 
-# 启动定时任务调度器
+# 启动事件
 @app.on_event("startup")
 def startup_event():
-    log.info("启动定时任务调度器...")
-    scheduler.start()
-    log.info("定时任务调度器已启动")
-    
+    log.info("应用启动...")
     # 初始化 MiniQMT
     log.info("初始化 MiniQMT...")
     init_minqmt()
 
-# 关闭定时任务调度器
+# 关闭事件
 @app.on_event("shutdown")
 def shutdown_event():
-    log.info("关闭定时任务调度器...")
-    scheduler.shutdown()
-    log.info("定时任务调度器已关闭")
-    
+    log.info("应用关闭...")
     # 关闭 MiniQMT
     log.info("关闭 MiniQMT...")
     close_minqmt()
 
 if __name__ == "__main__":
-    main()
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8080)
